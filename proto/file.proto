@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package file;
+
+option go_package = "github.com/saichler/syncit/model";
+
+message File {
+  string name  = 1;
+  int64  size  = 2;
+  int64  date  = 3;
+  string hash  = 4;
+  repeated File files = 5;
+}

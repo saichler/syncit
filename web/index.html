@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<canvas id="tree" width="200" height="500"
+        style="border:2px solid #000000;">
+</canvas>
+
+<script>
+
+    class TreeModel {
+        constructor() {
+            this.name = "Hello World";
+        }
+    }
+
+    drawTree()
+
+    function drawTree() {
+        var canvas = document.getElementById("tree");
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#4080AA";
+        ctx.fillRect(0,0,canvas.offsetWidth,canvas.offsetHeight);
+        ctx.beginPath();
+        ctx.strokeStyle = "#FF0000";
+        ctx.moveTo(0,0);
+        ctx.lineTo(150,75);
+        ctx.stroke();
+        ctx.font = "30px Arial";
+        tm= new TreeModel();
+        ctx.fillStyle = "#000000";
+        ctx.fillText(tm.name, 10, 50);
+    }
+
+
+</script>
+
+</body>
+</html>
