@@ -33,3 +33,10 @@ func (ls *LS) HandleResponse(c *model.Command, tc *transport.Connection) {
 	}
 	files.Print(dir, 2, true, true)
 }
+
+func (ls *LS) Exec(args []string, tc *transport.Connection) {
+	c:=&model.Command{}
+	c.Cli = ls.Cli()
+	c.Args = args
+	transport.Send(c,tc)
+}

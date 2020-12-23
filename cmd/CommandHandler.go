@@ -20,6 +20,15 @@ func initHandlers() bool {
 	return true
 }
 
+func (ch *CommandHandler) Execute(command string, args []string, tc *transport.Connection) {
+	h, ok := cmdHandlers[command]
+	if ok {
+		h.Exec(args, tc)
+	} else {
+		log.Error("Unknown command ", command)
+	}
+}
+
 func (ch *CommandHandler) HandleMessage(msg []byte, tc *transport.Connection) {
 	cmd := &model.Command{}
 	err := proto.Unmarshal(msg, cmd)
