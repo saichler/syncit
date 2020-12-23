@@ -134,7 +134,7 @@ func (c *Connection) process() {
 
 func (c *Connection) handleMessage(msg []byte) {
 	if c.msgListener != nil {
-		c.msgListener.HandleMessage(msg)
+		c.msgListener.HandleMessage(msg,c)
 	} else {
 		fmt.Println(string(msg))
 	}

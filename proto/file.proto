@@ -11,3 +11,9 @@ message File {
   string hash  = 4;
   repeated File files = 5;
 }
+
+message Command {
+   string cli     = 1;
+   repeated string args  = 2;
+   bytes response = 3;
+}

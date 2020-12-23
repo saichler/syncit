@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"github.com/golang/protobuf/proto"
 	"io"
 	"net"
 	"time"
@@ -127,4 +128,12 @@ func writePacket(data []byte, conn net.Conn) error {
 	}
 	_, e = conn.Write(data)
 	return e
+}
+
+func Send(pb proto.Message, c *Connection) error {
+	data, err := proto.Marshal(pb)
+	if err != nil {
+		return err
+	}
+	return c.Send(data)
 }

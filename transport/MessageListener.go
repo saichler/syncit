@@ -1,5 +1,5 @@
 package transport
 
 type MessageListener interface {
-	HandleMessage([]byte)
+	HandleMessage([]byte, *Connection)
 }
