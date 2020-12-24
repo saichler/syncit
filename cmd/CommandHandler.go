@@ -17,6 +17,8 @@ type CommandHandler struct {
 func initHandlers() bool {
 	ls := &handlers.LS{}
 	cmdHandlers[ls.Cli()] = ls
+	fetch := &handlers.Fetch{}
+	cmdHandlers[fetch.Cli()] = fetch
 	return true
 }
 

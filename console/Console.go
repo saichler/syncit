@@ -35,7 +35,6 @@ func main() {
 }
 
 func (con *Console) processCommand(command string) {
-	defer fmt.Println("HHHH")
 	if command == "exit" || command == "quit" {
 		running = false
 		return
