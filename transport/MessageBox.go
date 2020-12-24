@@ -1,6 +1,8 @@
 package transport
 
-import "sync"
+import (
+	"sync"
+)
 
 type MessageBox struct {
 	queue [][]byte

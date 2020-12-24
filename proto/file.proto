@@ -5,18 +5,22 @@ package file;
 option go_package = "github.com/saichler/syncit/model";
 
 message File {
-  string name  = 1;
-  int64  size  = 2;
-  int64  date  = 3;
-  string hash  = 4;
-  repeated File files = 5;
+  string nameA         = 1;
+  int64  sizeA         = 2;
+  int64  dateA         = 3;
+  string hashA         = 4;
+  string nameZ         = 5;
+  int64  sizeZ         = 6;
+  int64  dateZ         = 7;
+  string hashZ         = 8;
+  repeated File files  = 9;
 }
 
 message Command {
-   string cli     = 1;
+   string cli            = 1;
    repeated string args  = 2;
-   bytes response = 3;
-   string id      = 4;
-   int32 responseId = 5;
-   int32 responseCount = 6;
+   bytes response        = 3;
+   string id             = 4;
+   int32 responseId      = 5;
+   int32 responseCount   = 6;
 }

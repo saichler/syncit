@@ -19,6 +19,8 @@ func initHandlers() bool {
 	cmdHandlers[ls.Cli()] = ls
 	fetch := &handlers.Fetch{}
 	cmdHandlers[fetch.Cli()] = fetch
+	sync := handlers.NewSync(&CommandHandler{})
+	cmdHandlers[sync.Cli()] = sync
 	return true
 }
 
@@ -43,7 +45,6 @@ func (ch *CommandHandler) HandleMessage(msg []byte, tc *transport.Connection) {
 
 func (ch *CommandHandler) handleCommand(c *model.Command, tc *transport.Connection) {
 	if c.Response == nil {
-		log.Info("Reauest:", c.Cli)
 		h, ok := cmdHandlers[c.Cli]
 		if ok {
 			h.HandleCommand(c, tc)
@@ -52,12 +53,11 @@ func (ch *CommandHandler) handleCommand(c *model.Command, tc *transport.Connecti
 		c.Response = []byte("my response")
 		transport.Send(c, tc)
 	} else {
-		log.Info("response to:", c.Cli)
 		h, ok := cmdHandlers[c.Cli]
 		if ok {
 			h.HandleResponse(c, tc)
 			return
 		}
-		log.Info(string(c.Response))
+		log.Error(string(c.Response))
 	}
 }

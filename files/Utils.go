@@ -20,10 +20,10 @@ func Scan(filename string) *model.File {
 		return nil
 	}
 	root := &model.File{}
-	root.Name = filename
+	root.NameA = filename
 	timestamp = time.Now().Unix()
 	if !s.IsDir() {
-		root.Size = s.Size()
+		root.SizeA = s.Size()
 	} else {
 		files, e := ioutil.ReadDir(filename)
 		if e != nil {
@@ -46,7 +46,7 @@ func getFilename(path, name string) string {
 
 func seek(parent *model.File, filename string) {
 	if time.Now().Unix()-timestamp > 1 {
-		fmt.Println("In dir:" + parent.Name)
+		fmt.Println("In dir:" + parent.NameA)
 		timestamp = time.Now().Unix()
 	}
 	s, e := os.Stat(filename)
@@ -62,14 +62,14 @@ func seek(parent *model.File, filename string) {
 	}
 
 	fe := &model.File{}
-	fe.Name = filename
+	fe.NameA = filename
 	if parent.Files == nil {
 		parent.Files = make([]*model.File, 0)
 	}
 	if !s.IsDir() {
-		fe.Size = s.Size()
-		fe.Date = s.ModTime().Unix()
-		parent.Size += fe.Size
+		fe.SizeA = s.Size()
+		fe.DateA = s.ModTime().Unix()
+		parent.SizeA += fe.SizeA
 	} else {
 		files, e := ioutil.ReadDir(filename)
 		if e != nil {
@@ -79,9 +79,9 @@ func seek(parent *model.File, filename string) {
 			seek(fe, getFilename(filename, file.Name()))
 		}
 		sort.Slice(parent.Files, func(i, j int) bool {
-			return parent.Files[i].Size > parent.Files[j].Size
+			return parent.Files[i].SizeA > parent.Files[j].SizeA
 		})
-		parent.Size += fe.Size
+		parent.SizeA += fe.SizeA
 	}
 	parent.Files = append(parent.Files, fe)
 }
@@ -97,12 +97,12 @@ func print(fe *model.File, lvl, dept int, incFiles, incLessThanBlock bool) {
 	if fe.Files == nil && !incFiles {
 		return
 	}
-	if fe.Size < MIN_FILE_SIZE && !incLessThanBlock {
+	if fe.SizeA < MIN_FILE_SIZE && !incLessThanBlock {
 		return
 	}
 	buff := bytes.Buffer{}
-	buff.WriteString(fe.Name)
-	sizeStr := sizeIt(fe.Size)
+	buff.WriteString(fe.NameA)
+	sizeStr := sizeIt(fe.SizeA)
 	buff.WriteString(" ")
 	buff.WriteString(sizeStr)
 	fmt.Println(buff.String())
@@ -131,4 +131,26 @@ func sizeIt(size int64) string {
 		buff.WriteString("g")
 	}
 	return buff.String()
+}
+
+func Stat(file *model.File, local string) {
+	stat(file, len(file.NameA), local)
+}
+
+func stat(file *model.File, index int, local string) {
+	buff := bytes.Buffer{}
+	buff.WriteString(local)
+	buff.WriteString(file.NameA[index:])
+	file.NameZ = buff.String()
+	f, e := os.Stat(file.NameZ)
+	if e == nil && !f.IsDir() {
+		file.DateA = f.ModTime().Unix()
+		file.SizeZ = f.Size()
+	}
+	if file.Files != nil {
+		for _, subFile := range file.Files {
+			stat(subFile, index, local)
+			file.SizeZ += subFile.SizeZ
+		}
+	}
 }

@@ -6,11 +6,15 @@ import (
 	"github.com/saichler/syncit/transport"
 )
 
+type CommandHandler interface {
+	Execute(command string, args []string, tc *transport.Connection)
+}
+
 type Handler interface {
 	Cli() string
 	HandleCommand(command *model.Command, tc *transport.Connection)
 	HandleResponse(command *model.Command, tc *transport.Connection)
-	Exec([]string,*transport.Connection)
+	Exec([]string, *transport.Connection)
 }
 
 func SetResponse(c *model.Command, pb proto.Message) error {
