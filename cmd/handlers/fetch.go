@@ -1,6 +1,5 @@
 package handlers
 
-import "C"
 import (
 	"fmt"
 	"github.com/saichler/syncit/model"
@@ -20,13 +19,6 @@ const (
 type Fetch struct {
 	mtx  *sync.Mutex
 	jobs map[string]*FetchJob
-}
-
-type FetchJob struct {
-	cond          *sync.Cond
-	queue         []*model.Command
-	last          int32
-	hadOrderIssue bool
 }
 
 func NewFetch() *Fetch {
