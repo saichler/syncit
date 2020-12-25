@@ -121,8 +121,8 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 			fetchJob.cond.Broadcast()
 		} else {
 			if command.ResponseId%10 == 0 {
-				pr := int64(command.ResponseId) / int64(command.ResponseCount) * 100
-				fmt.Print(".", int(pr))
+				pr := float64(command.ResponseId) / float64(command.ResponseCount) * 100
+				fmt.Print(".", int(pr),"%")
 			} else {
 				fmt.Print(".")
 			}
