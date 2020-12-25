@@ -120,7 +120,12 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 			fmt.Println("Done!")
 			fetchJob.cond.Broadcast()
 		} else {
-			fmt.Print(".")
+			if command.ResponseId%10 == 0 {
+				pr := int64(command.ResponseId) / int64(command.ResponseCount) * 100
+				fmt.Print(".", int(pr))
+			} else {
+				fmt.Print(".")
+			}
 		}
 		fetchJob.cond.L.Unlock()
 	}()

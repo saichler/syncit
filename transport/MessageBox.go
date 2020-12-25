@@ -22,6 +22,7 @@ func (msgBox *MessageBox) push(packet []byte) {
 	msgBox.mtx.L.Lock()
 	defer msgBox.mtx.L.Unlock()
 	for len(msgBox.queue) >= msgBox.maxSize {
+		msgBox.mtx.Broadcast()
 		msgBox.mtx.Wait()
 	}
 	msgBox.queue = append(msgBox.queue, packet)
