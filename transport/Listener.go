@@ -28,12 +28,10 @@ func NewListener(port int, secret, key string, ml MessageListener) *Listener {
 }
 
 func (l *Listener) bind() error {
-	log.Info("Listening on 0.0.0.0:", l.port)
-
 	socket, e := net.Listen("tcp", ":"+strconv.Itoa(l.port))
-
+	log.Info("Listening...")
 	if e != nil {
-		return e
+		panic(e.Error())
 	}
 	l.socket = socket
 	l.mtx = &sync.Mutex{}

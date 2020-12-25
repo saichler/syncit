@@ -3,13 +3,13 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/saichler/security"
 	"github.com/saichler/syncit/cmd"
 	"github.com/saichler/syncit/transport"
 	log "github.com/saichler/utils/golang"
-	"math/rand"
 	"os"
+	"strconv"
 	"strings"
-	"time"
 )
 
 type Console struct {
@@ -18,6 +18,13 @@ type Console struct {
 	tc            *transport.Connection
 }
 
+const (
+	FILENAME = "./console.io"
+	MYK      = "/my/k"
+	MYS      = "/my/s"
+	MYP      = "/my/p"
+)
+
 var prompt = "Sync-it->"
 var running = true
 
@@ -25,8 +32,16 @@ func main() {
 	con := &Console{}
 	con.commandHanler = &cmd.CommandHandler{}
 
-	if len(os.Args) > 1 {
-		con.startService([]string{os.Args[1]})
+	_, err := os.Stat(FILENAME)
+	if err != nil {
+		st := security.InitSecureStore(FILENAME)
+		st.Put(MYK, security.GenerateAES256Key())
+		st.Put(MYS, "sync-it")
+		st.Put(MYP, "45454")
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "service" {
+		con.startService()
 		return
 	}
 
@@ -53,8 +68,36 @@ func (con *Console) processCommand(command string) {
 		return
 	}
 
+	if args[0] == "gk" {
+		st := security.InitSecureStore(FILENAME)
+		k, _ := st.Get(MYK)
+		log.Info("MYK=", k)
+		return
+	} else if args[0] == "sk" {
+		st := security.InitSecureStore(FILENAME)
+		st.Put(MYK, security.GenerateAES256Key())
+		return
+	} else if args[0] == "gs" {
+		st := security.InitSecureStore(FILENAME)
+		s, _ := st.Get(MYS)
+		log.Info("MYS=", s)
+		return
+	} else if args[0] == "ss" {
+		st := security.InitSecureStore(FILENAME)
+		st.Put(MYS, args[1])
+		return
+	} else if args[0] == "gp" {
+		st := security.InitSecureStore(FILENAME)
+		p, _ := st.Get(MYP)
+		log.Info("MYP=", p)
+		return
+	} else if args[0] == "sp" {
+		st := security.InitSecureStore(FILENAME)
+		st.Put(MYP, args[1])
+		return
+	}
 	if args[0] == "service" {
-		go con.startService(args[1:])
+		go con.startService()
 	} else if args[0] == "connect" {
 		con.connect(args[1:])
 	} else {
@@ -63,14 +106,47 @@ func (con *Console) processCommand(command string) {
 }
 
 func (con *Console) connect(args []string) {
+	st := security.InitSecureStore(FILENAME)
+	if args == nil || len(args) == 0 {
+		log.Error("To connect you need the following args <host> <port> <key> <secret>")
+		return
+	}
+
+	host := ""
+	port := 45454
+	key := ""
+	secret := ""
+
+	if len(args) == 4 {
+		host = args[0]
+		port, _ = strconv.Atoi(args[1])
+		key = args[2]
+		secret = args[3]
+		prefix := "/" + host + "/"
+		st.Put(prefix+"p", strconv.Itoa(port))
+		st.Put(prefix+"k", key)
+		st.Put(prefix+"s", secret)
+	} else if len(args) == 1 {
+		host = args[0]
+		prefix := "/" + host + "/"
+		p, _ := st.Get(prefix + "p")
+		port, _ = strconv.Atoi(p)
+		key, _ = st.Get(prefix + "k")
+		secret, _ = st.Get(prefix + "s")
+		if port == 0 || key == "" || secret == "" {
+			log.Error("To connect you need the following args <host> <port> <key> <secret>")
+			return
+		}
+	} else {
+		log.Error("To connect you need the following args <host> <port> <key> <secret>")
+		return
+	}
+
 	if args == nil || len(args) != 3 {
 		log.Error("Connectg needs 3 args <host> <key> <secret>")
 		return
 	}
-	host := args[0]
-	port := 45454
-	key := args[1]
-	secret := args[2]
+
 	tc, err := transport.Connect(host, key, secret, port, con.commandHanler)
 	if err != nil {
 		log.Error("Unable to connect:", err)
@@ -80,31 +156,16 @@ func (con *Console) connect(args []string) {
 	log.Info("Connected!")
 }
 
-func (con *Console) startService(args []string) {
-	if args == nil || len(args) != 1 {
-		log.Error("service command needs 1 argument as secret")
-		return
-	}
+func (con *Console) startService() {
+	st := security.InitSecureStore(FILENAME)
+	p, _ := st.Get(MYP)
+	port, _ := strconv.Atoi(p)
+	key, _ := st.Get(MYK)
+	secret, _ := st.Get(MYS)
 
-	port := 45454
-	key := GenerateAES256Key()
-	secret := args[0]
-
-	log.Info("Key=", key, " secret=", secret, " port=", port)
 	con.service = transport.NewListener(port, secret, key, con.commandHanler)
 	err := con.service.Listen()
 	if err != nil {
 		log.Error("Failed to start service:", err)
 	}
-}
-
-var l = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-func GenerateAES256Key() string {
-	rand.Seed(time.Now().UnixNano())
-	key := make([]rune, 32)
-	for i := range key {
-		key[i] = l[rand.Intn(len(l))]
-	}
-	return string(key)
 }
