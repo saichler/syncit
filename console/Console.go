@@ -6,8 +6,10 @@ import (
 	"github.com/saichler/syncit/cmd"
 	"github.com/saichler/syncit/transport"
 	log "github.com/saichler/utils/golang"
+	"math/rand"
 	"os"
 	"strings"
+	"time"
 )
 
 type Console struct {
@@ -70,12 +72,30 @@ func (con *Console) connect(args []string) {
 }
 
 func (con *Console) startService(args []string) {
+	if args == nil || len(args) != 1 {
+		log.Error("service command needs 1 argument as secret")
+		return
+	}
+
 	port := 45454
-	key := "qHYsJuloczNsFrbqlhlffjkRuHWfrCtH"
-	secret := "syncit"
+	key := GenerateAES256Key()
+	secret := args[0]
+
+	log.Info("Key=", key, " secret=", secret, " port=", port)
 	con.service = transport.NewListener(port, secret, key, con.commandHanler)
 	err := con.service.Listen()
 	if err != nil {
 		log.Error("Failed to start service:", err)
 	}
+}
+
+var l = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func GenerateAES256Key() string {
+	rand.Seed(time.Now().UnixNano())
+	key := make([]rune, 32)
+	for i := range key {
+		key[i] = l[rand.Intn(len(l))]
+	}
+	return string(key)
 }

@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -17,8 +18,22 @@ const (
 )
 
 type Fetch struct {
-	sy  *sync.Mutex
-	mtx map[string]*sync.Cond
+	mtx  *sync.Mutex
+	jobs map[string]*FetchJob
+}
+
+type FetchJob struct {
+	cond          *sync.Cond
+	queue         []*model.Command
+	last          int32
+	hadOrderIssue bool
+}
+
+func NewFetch() *Fetch {
+	f := &Fetch{}
+	f.mtx = &sync.Mutex{}
+	f.jobs = make(map[string]*FetchJob)
+	return f
 }
 
 func (h *Fetch) Cli() string {
@@ -50,7 +65,10 @@ func (h *Fetch) HandleCommand(c *model.Command, tc *transport.Connection) {
 			c.Response = []byte(err.Error())
 			return
 		}
-		c.ResponseCount = int32(f.Size()/MAX_PART_SIZE + 1)
+		c.ResponseCount = int32(f.Size() / MAX_PART_SIZE)
+		if f.Size()&MAX_PART_SIZE > 0 {
+			c.ResponseCount++
+		}
 		for c.ResponseId < c.ResponseCount-1 {
 			data := make([]byte, MAX_PART_SIZE)
 			file.Read(data)
@@ -58,9 +76,12 @@ func (h *Fetch) HandleCommand(c *model.Command, tc *transport.Connection) {
 			transport.Send(c, tc)
 			c.ResponseId++
 		}
-		data := make([]byte, f.Size()-int64(MAX_PART_SIZE*c.ResponseId))
-		file.Read(data)
-		c.Response = data
+		left := f.Size() - int64(MAX_PART_SIZE*c.ResponseId)
+		if left > 0 {
+			data := make([]byte, left)
+			file.Read(data)
+			c.Response = data
+		}
 	} else {
 		data, err := ioutil.ReadFile(c.Args[0])
 		if err != nil {
@@ -72,6 +93,19 @@ func (h *Fetch) HandleCommand(c *model.Command, tc *transport.Connection) {
 }
 
 func (h *Fetch) HandleResponse(c *model.Command, tc *transport.Connection) {
+	h.mtx.Lock()
+	fetchJob := h.jobs[c.Args[0]]
+	h.mtx.Unlock()
+
+	fetchJob.cond.L.Lock()
+	if c.ResponseId != fetchJob.last+1 {
+		fetchJob.queue = append(fetchJob.queue, c)
+		fetchJob.cond.L.Unlock()
+		log.Error("Not Last ", c.ResponseId, fetchJob.last)
+		time.Sleep(time.Second)
+		return
+	}
+
 	var file *os.File
 	var err error
 	index := strings.LastIndex(c.Args[1], "/")
@@ -82,9 +116,10 @@ func (h *Fetch) HandleResponse(c *model.Command, tc *transport.Connection) {
 			os.MkdirAll(dirPath, 0777)
 		}
 	}
+
 	defer func() {
 		if c.ResponseId == 0 {
-			fmt.Print("Receiving ", c.Args[1], ".")
+			fmt.Print("Receiving ", c.Args[1], " with ", c.ResponseCount, " parts:.")
 		}
 		if file != nil {
 			file.Close()
@@ -92,15 +127,13 @@ func (h *Fetch) HandleResponse(c *model.Command, tc *transport.Connection) {
 		if err != nil {
 			log.Error(err)
 		}
-		if c.ResponseId == c.ResponseCount-1 || c.ResponseCount == 0 {
+		if fetchJob.last == c.ResponseCount-1 || c.ResponseCount == 0 {
 			fmt.Println("Done!")
-			h.sy.Lock()
-			cond := h.mtx[c.Args[0]]
-			h.sy.Unlock()
-			cond.Broadcast()
+			fetchJob.cond.Broadcast()
 		} else {
 			fmt.Print(".")
 		}
+		fetchJob.cond.L.Unlock()
 	}()
 	if c.ResponseCount == 0 || c.ResponseId == 0 {
 		file, err = os.Create(c.Args[1])
@@ -112,9 +145,34 @@ func (h *Fetch) HandleResponse(c *model.Command, tc *transport.Connection) {
 	} else {
 		file, err := os.OpenFile(c.Args[1], os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0777)
 		if err != nil {
+			log.Error(err)
 			return
 		}
 		file.Write(c.Response)
+	}
+	fetchJob.last = c.ResponseId
+	if len(fetchJob.queue) > 0 {
+		fetchJob.hadOrderIssue = true
+		found := true
+		for found && len(fetchJob.queue) > 0 {
+			found = false
+			index := -1
+			for i, c := range fetchJob.queue {
+				if c.ResponseId == fetchJob.last+1 {
+					found = true
+					file.Write(c.Response)
+					index = i
+					fetchJob.last = c.ResponseId
+					break
+				}
+			}
+			if found {
+				tmp := make([]*model.Command, 0)
+				tmp = append(tmp, fetchJob.queue[0:index]...)
+				tmp = append(tmp, fetchJob.queue[index+1:]...)
+				fetchJob.queue = tmp
+			}
+		}
 	}
 }
 
@@ -123,22 +181,26 @@ func (h *Fetch) Exec(args []string, tc *transport.Connection) {
 		log.Error("Fetch requiers source and destination")
 		return
 	}
-	if h.sy == nil {
-		h.sy = &sync.Mutex{}
-		h.mtx = make(map[string]*sync.Cond)
-	}
+
 	c := &model.Command{}
 	c.Cli = h.Cli()
 	c.Args = args
-	cond := sync.NewCond(&sync.Mutex{})
-	h.sy.Lock()
-	h.mtx[c.Args[0]] = cond
-	h.sy.Unlock()
-	h.mtx[c.Args[0]].L.Lock()
+	h.mtx.Lock()
+	h.jobs[c.Args[0]] = &FetchJob{}
+	h.jobs[c.Args[0]].queue = make([]*model.Command, 0)
+	h.jobs[c.Args[0]].cond = sync.NewCond(&sync.Mutex{})
+	h.jobs[c.Args[0]].last = -1
+	h.mtx.Unlock()
+
+	h.jobs[c.Args[0]].cond.L.Lock()
 	transport.Send(c, tc)
-	h.mtx[c.Args[0]].Wait()
-	h.mtx[c.Args[0]].L.Unlock()
-	h.sy.Lock()
-	delete(h.mtx, c.Args[0])
-	h.sy.Unlock()
+	h.jobs[c.Args[0]].cond.Wait()
+	h.jobs[c.Args[0]].cond.L.Unlock()
+
+	h.mtx.Lock()
+	if h.jobs[c.Args[0]].hadOrderIssue {
+		panic(c.Args[1] + " had order issue")
+	}
+	delete(h.jobs, c.Args[0])
+	h.mtx.Unlock()
 }

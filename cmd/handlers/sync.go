@@ -6,7 +6,6 @@ import (
 	"github.com/saichler/syncit/model"
 	"github.com/saichler/syncit/transport"
 	log "github.com/saichler/utils/golang"
-	"os"
 )
 
 type Sync struct {
@@ -44,13 +43,17 @@ func (h *Sync) HandleResponse(c *model.Command, tc *transport.Connection) {
 	files.Stat(dir, c.Args[1])
 	log.Info("Fetching missing Files...")
 	h.fetch(dir, tc)
-
+	log.Info("Done Synching Directories")
 }
+
+var count = 0
 
 func (h *Sync) fetch(file *model.File, tc *transport.Connection) {
 	if file.Files == nil {
-		h.commandHandler.Execute("fetch", []string{file.NameA, file.NameZ}, tc)
-		os.Exit(0)
+		if file.SizeA != file.SizeZ {
+			log.Info("A:",file.SizeA," Z:",file.SizeZ)
+			h.commandHandler.Execute("fetch", []string{file.NameA, file.NameZ}, tc)
+		}
 	} else {
 		for _, subFile := range file.Files {
 			h.fetch(subFile, tc)
