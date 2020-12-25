@@ -11,10 +11,6 @@ import (
 	"sync"
 )
 
-const (
-	MAX_PART_SIZE = 5 * 1024 * 1024
-)
-
 type Fetch struct {
 	mtx  *sync.Mutex
 	jobs map[string]*FetchJob
@@ -50,24 +46,24 @@ func (h *Fetch) HandleCommand(c *model.Command, tc *transport.Connection) {
 		c.Response = []byte(err.Error())
 		return
 	}
-	if f.Size() > MAX_PART_SIZE {
+	if f.Size() > transport.LARGE_PACKET {
 		file, err = os.Open(c.Args[0])
 		if err != nil {
 			c.Response = []byte(err.Error())
 			return
 		}
-		c.ResponseCount = int32(f.Size() / MAX_PART_SIZE)
-		if f.Size()&MAX_PART_SIZE > 0 {
+		c.ResponseCount = int32(f.Size() / transport.LARGE_PACKET)
+		if f.Size()&transport.LARGE_PACKET > 0 {
 			c.ResponseCount++
 		}
 		for c.ResponseId < c.ResponseCount-1 {
-			data := make([]byte, MAX_PART_SIZE)
+			data := make([]byte, transport.LARGE_PACKET)
 			file.Read(data)
 			c.Response = data
 			transport.Send(c, tc)
 			c.ResponseId++
 		}
-		left := f.Size() - int64(MAX_PART_SIZE*c.ResponseId)
+		left := f.Size() - int64(transport.LARGE_PACKET*c.ResponseId)
 		if left > 0 {
 			log.Info("Left==", left)
 			data := make([]byte, left)

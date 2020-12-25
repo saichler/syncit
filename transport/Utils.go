@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	MAX_SIZE = 1024 * 1024 * 50
+	MAX_SIZE     = 1024 * 1024 * 50
+	LARGE_PACKET = 1024 * 1024 * 5
 )
 
 func long2Bytes(s int64) []byte {
