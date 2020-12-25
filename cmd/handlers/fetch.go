@@ -49,7 +49,7 @@ func (h *Fetch) HandleCommand(c *model.Command, tc *transport.Connection) {
 			return
 		}
 		c.ResponseCount = int32(f.Size() / transport.LARGE_PACKET)
-		if f.Size()&transport.LARGE_PACKET > 0 {
+		if f.Size()%transport.LARGE_PACKET > 0 {
 			c.ResponseCount++
 		}
 		for c.ResponseId < c.ResponseCount-1 {
