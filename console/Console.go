@@ -58,10 +58,14 @@ func (con *Console) processCommand(command string) {
 }
 
 func (con *Console) connect(args []string) {
-	host := "127.0.0.1"
+	if args == nil || len(args) != 3 {
+		log.Error("Connectg needs 3 args <host> <key> <secret>")
+		return
+	}
+	host := args[0]
 	port := 45454
-	key := "qHYsJuloczNsFrbqlhlffjkRuHWfrCtH"
-	secret := "syncit"
+	key := args[1]
+	secret := args[2]
 	tc, err := transport.Connect(host, key, secret, port, con.commandHanler)
 	if err != nil {
 		log.Error("Unable to connect:", err)

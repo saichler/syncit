@@ -51,7 +51,6 @@ var count = 0
 func (h *Sync) fetch(file *model.File, tc *transport.Connection) {
 	if file.Files == nil {
 		if file.SizeA != file.SizeZ {
-			log.Info("A:",file.SizeA," Z:",file.SizeZ)
 			h.commandHandler.Execute("fetch", []string{file.NameA, file.NameZ}, tc)
 		}
 	} else {
