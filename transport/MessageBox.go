@@ -1,6 +1,7 @@
 package transport
 
 import (
+	log "github.com/saichler/utils/golang"
 	"sync"
 	"time"
 )
@@ -21,9 +22,11 @@ func newMessageBox(maxSize int) *MessageBox {
 
 func (msgBox *MessageBox) push(packet []byte) {
 	for len(msgBox.queue) >= msgBox.maxSize {
-		time.Sleep(time.Second / 2)
+		log.Info("Queue Wait")
+		time.Sleep(time.Second)
 		msgBox.mtx.Broadcast()
 	}
+	log.Info("Pushing ", len(packet))
 	msgBox.mtx.L.Lock()
 	defer msgBox.mtx.L.Unlock()
 	msgBox.queue = append(msgBox.queue, packet)
