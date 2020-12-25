@@ -69,6 +69,7 @@ func (h *Fetch) HandleCommand(c *model.Command, tc *transport.Connection) {
 		}
 		left := f.Size() - int64(MAX_PART_SIZE*c.ResponseId)
 		if left > 0 {
+			log.Info("Left==", left)
 			data := make([]byte, left)
 			file.Read(data)
 			c.Response = data
@@ -145,7 +146,7 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 			return
 		}
 		if fetchJob.hadOrderIssue {
-			log.Info("Writing part ", command.ResponseId, " of file:", command.Args[1])
+			log.Info("Writing part ", command.ResponseId, " size:", len(command.Response), " of file:", command.Args[1])
 		}
 		file.Write(command.Response)
 	}
@@ -156,7 +157,7 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 		fmt.Print(".")
 		fetchJob.hadOrderIssue = true
 		if fetchJob.hadOrderIssue {
-			log.Info("Writing part ", waitingCommand.ResponseId, " of file:", waitingCommand.Args[1])
+			log.Info("Writing part ", waitingCommand.ResponseId, " size:", len(waitingCommand.Response), " of file:", waitingCommand.Args[1])
 		}
 		file.Write(waitingCommand.Response)
 		fetchJob.last = waitingCommand.ResponseId
