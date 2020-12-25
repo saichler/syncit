@@ -43,27 +43,34 @@ func (h *Fetch) HandleCommand(c *model.Command, tc *transport.Connection) {
 		return
 	}
 	if f.Size() > transport.LARGE_PACKET {
+		responseID := 0
+		responseCount := 0
 		file, err = os.Open(c.Args[0])
 		if err != nil {
 			c.Response = []byte(err.Error())
 			return
 		}
-		c.ResponseCount = int32(f.Size() / transport.LARGE_PACKET)
+		responseCount = int(f.Size() / transport.LARGE_PACKET)
 		if f.Size()%transport.LARGE_PACKET > 0 {
-			c.ResponseCount++
+			responseCount++
 		}
-		for c.ResponseId < c.ResponseCount-1 {
+		for responseID < responseCount-1 {
 			data := make([]byte, transport.LARGE_PACKET)
 			file.Read(data)
+			c.ResponseCount = int32(responseCount)
+			c.ResponseId = int32(responseID)
 			c.Response = data
 			transport.Send(c, tc)
-			c.ResponseId++
+			responseID++
 		}
-		left := f.Size() - int64(transport.LARGE_PACKET*c.ResponseId)
+		log.Info("Last Response ID=", responseID)
+		left := int(f.Size()) - transport.LARGE_PACKET*responseID
 		if left > 0 {
 			log.Info("Left==", left)
 			data := make([]byte, left)
 			file.Read(data)
+			c.ResponseId = int32(responseID)
+			c.ResponseCount = int32(responseCount)
 			c.Response = data
 			transport.Send(c, tc)
 		}
