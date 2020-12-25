@@ -115,6 +115,7 @@ func (c *Connection) write() {
 	for c.running {
 		packet := c.outbox.pop()
 		if packet != nil {
+			log.Info("Sending ",len(packet))
 			if len(packet) >= MAX_SIZE/2 {
 				c.writeMutex.L.Lock()
 				writePacket(packet, c.conn)
