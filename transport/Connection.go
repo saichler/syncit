@@ -27,6 +27,7 @@ func newConnection(con net.Conn, key string, ml MessageListener) *Connection {
 	c.conn = con
 	c.key = key
 	c.msgListener = ml
+	c.writeMutex = sync.NewCond(&sync.Mutex{})
 	return c
 }
 
@@ -96,7 +97,7 @@ func (c *Connection) read() {
 				c.writeMutex.Broadcast()
 				c.writeMutex.L.Unlock()
 				continue
-			} else if len(packet) == MAX_SIZE {
+			} else if len(packet) >= MAX_SIZE {
 				c.writeMutex.L.Lock()
 				writePacket([]byte("WC"), c.conn)
 				c.writeMutex.L.Unlock()
@@ -114,10 +115,12 @@ func (c *Connection) write() {
 	for c.running {
 		packet := c.outbox.pop()
 		if packet != nil {
-			if len(packet) == MAX_SIZE {
+			if len(packet) >= MAX_SIZE {
 				c.writeMutex.L.Lock()
 				writePacket(packet, c.conn)
+				fmt.Print("waiting for confirmation...")
 				c.writeMutex.Wait()
+				fmt.Println("confirmed!")
 				c.writeMutex.L.Unlock()
 			} else {
 				writePacket(packet, c.conn)
