@@ -110,7 +110,7 @@ func (con *Console) processCommand(input string) {
 		return
 	} else if command == "ss" {
 		st := security.InitSecureStore(FILENAME)
-		st.Put(MYS, args[1])
+		st.Put(MYS, args[0])
 		return
 	} else if command == "gp" {
 		st := security.InitSecureStore(FILENAME)
@@ -119,7 +119,7 @@ func (con *Console) processCommand(input string) {
 		return
 	} else if command == "sp" {
 		st := security.InitSecureStore(FILENAME)
-		st.Put(MYP, args[1])
+		st.Put(MYP, args[0])
 		return
 	}
 	if command == "service" {
