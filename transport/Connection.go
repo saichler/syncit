@@ -22,7 +22,7 @@ type Connection struct {
 func newConnection(con net.Conn, key string, ml MessageListener) *Connection {
 	c := &Connection{}
 	c.inbox = newMessageBox(1000)
-	c.outbox = newMessageBox(10)
+	c.outbox = newMessageBox(20)
 	c.running = true
 	c.conn = con
 	c.key = key
@@ -98,9 +98,11 @@ func (c *Connection) read() {
 				c.writeMutex.L.Unlock()
 				continue
 			} else if len(packet) >= LARGE_PACKET {
-				c.writeMutex.L.Lock()
-				writePacket([]byte("WC"), c.conn)
-				c.writeMutex.L.Unlock()
+				/*
+					c.writeMutex.L.Lock()
+					writePacket([]byte("WC"), c.conn)
+					c.writeMutex.L.Unlock()
+				*/
 			}
 			c.inbox.push(packet)
 		} else {
@@ -118,7 +120,7 @@ func (c *Connection) write() {
 			c.writeMutex.L.Lock()
 			writePacket(packet, c.conn)
 			if len(packet) >= LARGE_PACKET {
-				c.writeMutex.Wait()
+				//c.writeMutex.Wait()
 			}
 			c.writeMutex.L.Unlock()
 		} else {

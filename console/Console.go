@@ -87,11 +87,6 @@ func getCommandAndArgs(str string) (string, []string) {
 
 func (con *Console) processCommand(input string) {
 	command, args := getCommandAndArgs(input)
-	fmt.Println(command)
-	for i, arg := range args {
-		fmt.Println("Arg", i, ":", arg)
-	}
-
 	if command == "exit" || command == "quit" {
 		running = false
 		return
