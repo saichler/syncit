@@ -63,10 +63,8 @@ func (h *Fetch) HandleCommand(c *model.Command, tc *transport.Connection) {
 			transport.Send(c, tc)
 			responseID++
 		}
-		log.Info("Last Response ID=", responseID)
 		left := int(f.Size()) - transport.LARGE_PACKET*responseID
 		if left > 0 {
-			log.Info("Left==", left)
 			data := make([]byte, left)
 			file.Read(data)
 			c.ResponseId = int32(responseID)
