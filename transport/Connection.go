@@ -129,6 +129,7 @@ func (c *Connection) write() {
 				if c.largePacketCount > 10 {
 					log.Info("Sleeping before continue")
 					time.Sleep(time.Second)
+					c.largePacketCount=0
 				}
 			} else {
 				writePacket(packet, c.conn)
