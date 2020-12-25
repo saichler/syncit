@@ -6,6 +6,7 @@ import (
 	log "github.com/saichler/utils/golang"
 	"net"
 	"strconv"
+	"sync"
 )
 
 type Connection struct {
@@ -15,6 +16,7 @@ type Connection struct {
 	conn        net.Conn
 	running     bool
 	msgListener MessageListener
+	writeMutex  *sync.Cond
 }
 
 func newConnection(con net.Conn, key string, ml MessageListener) *Connection {
@@ -85,11 +87,23 @@ func (c *Connection) read() {
 	for c.running {
 		packet, err := readPacket(c.conn)
 		if err != nil {
+			log.Error(err)
 			break
 		}
 		if packet != nil {
+			if len(packet) == 2 && string(packet) == "WC" {
+				c.writeMutex.L.Lock()
+				c.writeMutex.Broadcast()
+				c.writeMutex.L.Unlock()
+				continue
+			} else if len(packet) == MAX_SIZE {
+				c.writeMutex.L.Lock()
+				writePacket([]byte("WC"), c.conn)
+				c.writeMutex.L.Unlock()
+			}
 			c.inbox.push(packet)
 		} else {
+			log.Error("packet is nil")
 			break
 		}
 	}
@@ -100,7 +114,14 @@ func (c *Connection) write() {
 	for c.running {
 		packet := c.outbox.pop()
 		if packet != nil {
-			writePacket(packet, c.conn)
+			if len(packet) == MAX_SIZE {
+				c.writeMutex.L.Lock()
+				writePacket(packet, c.conn)
+				c.writeMutex.Wait()
+				c.writeMutex.L.Unlock()
+			} else {
+				writePacket(packet, c.conn)
+			}
 		} else {
 			break
 		}

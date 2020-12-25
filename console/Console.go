@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"github.com/saichler/security"
 	"github.com/saichler/syncit/cmd"
@@ -56,52 +57,82 @@ func main() {
 	fmt.Println("Goodbye!")
 }
 
-func (con *Console) processCommand(command string) {
+func getCommandAndArgs(str string) (string, []string) {
+	index := strings.Index(str, " ")
+	if index == -1 {
+		return str, []string{}
+	}
+	command := str[0:index]
+	str = str[index+1:]
+	args := make([]string, 0)
+	qo := false
+	buff := bytes.Buffer{}
+	for _, c := range str {
+		if c == '"' {
+			qo = !qo
+		} else if c == ' ' && !qo {
+			args = append(args, buff.String())
+			buff = bytes.Buffer{}
+		} else {
+			buff.WriteString(string(c))
+		}
+	}
+
+	if buff.String() != "" {
+		args = append(args, buff.String())
+	}
+
+	return command, args
+}
+
+func (con *Console) processCommand(input string) {
+	command, args := getCommandAndArgs(input)
+	fmt.Println(command)
+	for i, arg := range args {
+		fmt.Println("Arg", i, ":", arg)
+	}
+
 	if command == "exit" || command == "quit" {
 		running = false
 		return
 	} else if command == "" {
 		return
 	}
-	args := strings.Split(command, " ")
-	if args == nil || len(args) == 0 {
-		return
-	}
 
-	if args[0] == "gk" {
+	if command == "gk" {
 		st := security.InitSecureStore(FILENAME)
 		k, _ := st.Get(MYK)
 		log.Info("MYK=", k)
 		return
-	} else if args[0] == "sk" {
+	} else if command == "sk" {
 		st := security.InitSecureStore(FILENAME)
 		st.Put(MYK, security.GenerateAES256Key())
 		return
-	} else if args[0] == "gs" {
+	} else if command == "gs" {
 		st := security.InitSecureStore(FILENAME)
 		s, _ := st.Get(MYS)
 		log.Info("MYS=", s)
 		return
-	} else if args[0] == "ss" {
+	} else if command == "ss" {
 		st := security.InitSecureStore(FILENAME)
 		st.Put(MYS, args[1])
 		return
-	} else if args[0] == "gp" {
+	} else if command == "gp" {
 		st := security.InitSecureStore(FILENAME)
 		p, _ := st.Get(MYP)
 		log.Info("MYP=", p)
 		return
-	} else if args[0] == "sp" {
+	} else if command == "sp" {
 		st := security.InitSecureStore(FILENAME)
 		st.Put(MYP, args[1])
 		return
 	}
-	if args[0] == "service" {
+	if command == "service" {
 		go con.startService()
-	} else if args[0] == "connect" {
-		con.connect(args[1:])
+	} else if command == "connect" {
+		con.connect(args)
 	} else {
-		con.commandHanler.Execute(args[0], args[1:], con.tc)
+		con.commandHanler.Execute(command, args, con.tc)
 	}
 }
 
@@ -139,11 +170,6 @@ func (con *Console) connect(args []string) {
 		}
 	} else {
 		log.Error("To connect you need the following args <host> <port> <key> <secret>")
-		return
-	}
-
-	if args == nil || len(args) != 3 {
-		log.Error("Connectg needs 3 args <host> <key> <secret>")
 		return
 	}
 
