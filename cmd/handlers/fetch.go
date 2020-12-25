@@ -98,19 +98,19 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 	var file *os.File
 	var err error
 
-	index := strings.LastIndex(command.Args[1], "/")
-	if index != -1 {
-		dirPath := command.Args[1][0:index]
-		_, exist := os.Stat(dirPath)
-		if exist != nil {
-			os.MkdirAll(dirPath, 0777)
+	if command.ResponseId == 0 {
+		fmt.Print("Receiving ", command.Args[1], " with ", command.ResponseCount, " parts:.")
+		index := strings.LastIndex(command.Args[1], "/")
+		if index != -1 {
+			dirPath := command.Args[1][0:index]
+			_, exist := os.Stat(dirPath)
+			if exist != nil {
+				os.MkdirAll(dirPath, 0777)
+			}
 		}
 	}
 
 	defer func() {
-		if command.ResponseId == 0 {
-			fmt.Print("Receiving ", command.Args[1], " with ", command.ResponseCount, " parts:.")
-		}
 		if file != nil {
 			file.Close()
 		}
@@ -125,6 +125,7 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 		}
 		fetchJob.cond.L.Unlock()
 	}()
+
 	if command.ResponseCount == 0 || command.ResponseId == 0 {
 		file, err = os.Create(command.Args[1])
 		if err != nil {
@@ -144,6 +145,7 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 
 	waitingCommand, ok := fetchJob.waiting[fetchJob.last+1]
 	for ok {
+		fmt.Print(".")
 		fetchJob.hadOrderIssue = true
 		file.Write(waitingCommand.Response)
 		fetchJob.last = waitingCommand.ResponseId
