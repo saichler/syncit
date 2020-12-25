@@ -7,7 +7,6 @@ import (
 	"net"
 	"strconv"
 	"sync"
-	"time"
 )
 
 type Connection struct {
@@ -18,7 +17,6 @@ type Connection struct {
 	running          bool
 	msgListener      MessageListener
 	writeMutex       *sync.Cond
-	largePacketCount int
 }
 
 func newConnection(con net.Conn, key string, ml MessageListener) *Connection {
@@ -124,13 +122,7 @@ func (c *Connection) write() {
 				fmt.Print("waiting for confirmation...")
 				c.writeMutex.Wait()
 				fmt.Println("confirmed!")
-				c.largePacketCount++
 				c.writeMutex.L.Unlock()
-				if c.largePacketCount > 10 {
-					log.Info("Sleeping before continue")
-					time.Sleep(time.Second)
-					c.largePacketCount=0
-				}
 			} else {
 				writePacket(packet, c.conn)
 			}
