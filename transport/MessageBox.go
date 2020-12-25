@@ -22,6 +22,7 @@ func newMessageBox(maxSize int) *MessageBox {
 func (msgBox *MessageBox) push(packet []byte) {
 	for len(msgBox.queue) >= msgBox.maxSize {
 		time.Sleep(time.Second / 2)
+		msgBox.mtx.Broadcast()
 	}
 	msgBox.mtx.L.Lock()
 	defer msgBox.mtx.L.Unlock()
