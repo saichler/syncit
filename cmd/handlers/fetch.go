@@ -91,6 +91,8 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 	fetchJob.cond.L.Lock()
 	if command.ResponseId != fetchJob.last+1 {
 		fetchJob.waiting[command.ResponseId] = command
+		fetchJob.hadOrderIssue = true
+		log.Info("Part ", command.ResponseId, " of file:", command.Args[1])
 		fetchJob.cond.L.Unlock()
 		return
 	}
@@ -131,6 +133,9 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 		if err != nil {
 			return
 		} else {
+			if fetchJob.hadOrderIssue {
+				log.Info("Writing part ", command.ResponseId, " of file:", command.Args[1])
+			}
 			file.Write(command.Response)
 		}
 	} else {
@@ -138,6 +143,9 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 		if err != nil {
 			log.Error(err)
 			return
+		}
+		if fetchJob.hadOrderIssue {
+			log.Info("Writing part ", command.ResponseId, " of file:", command.Args[1])
 		}
 		file.Write(command.Response)
 	}
@@ -147,6 +155,9 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 	for ok {
 		fmt.Print(".")
 		fetchJob.hadOrderIssue = true
+		if fetchJob.hadOrderIssue {
+			log.Info("Writing part ", waitingCommand.ResponseId, " of file:", waitingCommand.Args[1])
+		}
 		file.Write(waitingCommand.Response)
 		fetchJob.last = waitingCommand.ResponseId
 		delete(fetchJob.waiting, waitingCommand.ResponseId)
