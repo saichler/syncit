@@ -114,6 +114,9 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 	}
 
 	defer func() {
+		if file != nil {
+			file.Close()
+		}
 		if err != nil {
 			log.Error(err)
 		}
@@ -126,34 +129,28 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 		fetchJob.cond.L.Unlock()
 	}()
 
+	dataToWrite := make([]byte, 0)
+
 	if command.ResponseCount == 0 || command.ResponseId == 0 {
 		file, err = os.Create(command.Args[1])
 		if err != nil {
-			if file != nil {
-				file.Close()
-			}
 			return
 		} else {
 			if fetchJob.hadOrderIssue {
 				log.Info("Writing part ", command.ResponseId, " of file:", command.Args[1])
 			}
-			file.Write(command.Response)
-			file.Close()
+			dataToWrite = append(dataToWrite, command.Response...)
 		}
 	} else {
-		file, err := os.OpenFile(command.Args[1], os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0777)
+		file, err = os.OpenFile(command.Args[1], os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0777)
 		if err != nil {
-			if file != nil {
-				file.Close()
-			}
 			log.Error(err)
 			return
 		}
 		if fetchJob.hadOrderIssue {
 			log.Info("Writing part ", command.ResponseId, " size:", len(command.Response), " of file:", command.Args[1])
 		}
-		file.Write(command.Response)
-		file.Close()
+		dataToWrite = append(dataToWrite, command.Response...)
 	}
 	fetchJob.last = command.ResponseId
 
@@ -161,20 +158,12 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 	for ok {
 		fmt.Print(".")
 		log.Info("Writing part ", waitingCommand.ResponseId, " size:", len(waitingCommand.Response), " of file:", waitingCommand.Args[1])
-		file, err := os.OpenFile(command.Args[1], os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0777)
-		if err != nil {
-			if file != nil {
-				file.Close()
-			}
-			log.Error(err)
-			return
-		}
-		file.Write(waitingCommand.Response)
-		file.Close()
+		dataToWrite = append(dataToWrite, waitingCommand.Response...)
 		fetchJob.last = waitingCommand.ResponseId
 		delete(fetchJob.waiting, waitingCommand.ResponseId)
 		waitingCommand, ok = fetchJob.waiting[fetchJob.last+1]
 	}
+	file.Write(dataToWrite)
 }
 
 func (h *Fetch) Exec(args []string, tc *transport.Connection) {
