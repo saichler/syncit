@@ -25,6 +25,11 @@ func main() {
 	con := &Console{}
 	con.commandHanler = &cmd.CommandHandler{}
 
+	if len(os.Args) > 1 {
+		con.startService([]string{os.Args[1]})
+		return
+	}
+
 	reader := bufio.NewReader(os.Stdin)
 
 	for running {

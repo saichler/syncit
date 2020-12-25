@@ -7,7 +7,7 @@ import (
 
 type FetchJob struct {
 	cond          *sync.Cond
-	queue         []*model.Command
+	waiting       map[int32]*model.Command
 	last          int32
 	hadOrderIssue bool
 }

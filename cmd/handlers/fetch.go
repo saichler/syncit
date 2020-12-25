@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 )
 
 const (
@@ -84,25 +83,24 @@ func (h *Fetch) HandleCommand(c *model.Command, tc *transport.Connection) {
 	}
 }
 
-func (h *Fetch) HandleResponse(c *model.Command, tc *transport.Connection) {
+func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection) {
 	h.mtx.Lock()
-	fetchJob := h.jobs[c.Args[0]]
+	fetchJob := h.jobs[command.Args[0]]
 	h.mtx.Unlock()
 
 	fetchJob.cond.L.Lock()
-	if c.ResponseId != fetchJob.last+1 {
-		fetchJob.queue = append(fetchJob.queue, c)
+	if command.ResponseId != fetchJob.last+1 {
+		fetchJob.waiting[command.ResponseId] = command
 		fetchJob.cond.L.Unlock()
-		log.Error("Not Last ", c.ResponseId, fetchJob.last)
-		time.Sleep(time.Second)
 		return
 	}
 
 	var file *os.File
 	var err error
-	index := strings.LastIndex(c.Args[1], "/")
+
+	index := strings.LastIndex(command.Args[1], "/")
 	if index != -1 {
-		dirPath := c.Args[1][0:index]
+		dirPath := command.Args[1][0:index]
 		_, exist := os.Stat(dirPath)
 		if exist != nil {
 			os.MkdirAll(dirPath, 0777)
@@ -110,8 +108,8 @@ func (h *Fetch) HandleResponse(c *model.Command, tc *transport.Connection) {
 	}
 
 	defer func() {
-		if c.ResponseId == 0 {
-			fmt.Print("Receiving ", c.Args[1], " with ", c.ResponseCount, " parts:.")
+		if command.ResponseId == 0 {
+			fmt.Print("Receiving ", command.Args[1], " with ", command.ResponseCount, " parts:.")
 		}
 		if file != nil {
 			file.Close()
@@ -119,7 +117,7 @@ func (h *Fetch) HandleResponse(c *model.Command, tc *transport.Connection) {
 		if err != nil {
 			log.Error(err)
 		}
-		if fetchJob.last == c.ResponseCount-1 || c.ResponseCount == 0 {
+		if fetchJob.last == command.ResponseCount-1 || command.ResponseCount == 0 {
 			fmt.Println("Done!")
 			fetchJob.cond.Broadcast()
 		} else {
@@ -127,44 +125,30 @@ func (h *Fetch) HandleResponse(c *model.Command, tc *transport.Connection) {
 		}
 		fetchJob.cond.L.Unlock()
 	}()
-	if c.ResponseCount == 0 || c.ResponseId == 0 {
-		file, err = os.Create(c.Args[1])
+	if command.ResponseCount == 0 || command.ResponseId == 0 {
+		file, err = os.Create(command.Args[1])
 		if err != nil {
 			return
 		} else {
-			file.Write(c.Response)
+			file.Write(command.Response)
 		}
 	} else {
-		file, err := os.OpenFile(c.Args[1], os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0777)
+		file, err := os.OpenFile(command.Args[1], os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0777)
 		if err != nil {
 			log.Error(err)
 			return
 		}
-		file.Write(c.Response)
+		file.Write(command.Response)
 	}
-	fetchJob.last = c.ResponseId
-	if len(fetchJob.queue) > 0 {
+	fetchJob.last = command.ResponseId
+
+	waitingCommand, ok := fetchJob.waiting[fetchJob.last+1]
+	for ok {
 		fetchJob.hadOrderIssue = true
-		found := true
-		for found && len(fetchJob.queue) > 0 {
-			found = false
-			index := -1
-			for i, c := range fetchJob.queue {
-				if c.ResponseId == fetchJob.last+1 {
-					found = true
-					file.Write(c.Response)
-					index = i
-					fetchJob.last = c.ResponseId
-					break
-				}
-			}
-			if found {
-				tmp := make([]*model.Command, 0)
-				tmp = append(tmp, fetchJob.queue[0:index]...)
-				tmp = append(tmp, fetchJob.queue[index+1:]...)
-				fetchJob.queue = tmp
-			}
-		}
+		file.Write(waitingCommand.Response)
+		fetchJob.last = waitingCommand.ResponseId
+		delete(fetchJob.waiting, waitingCommand.ResponseId)
+		waitingCommand, ok = fetchJob.waiting[fetchJob.last+1]
 	}
 }
 
@@ -179,7 +163,7 @@ func (h *Fetch) Exec(args []string, tc *transport.Connection) {
 	c.Args = args
 	h.mtx.Lock()
 	h.jobs[c.Args[0]] = &FetchJob{}
-	h.jobs[c.Args[0]].queue = make([]*model.Command, 0)
+	h.jobs[c.Args[0]].waiting = make(map[int32]*model.Command, 0)
 	h.jobs[c.Args[0]].cond = sync.NewCond(&sync.Mutex{})
 	h.jobs[c.Args[0]].last = -1
 	h.mtx.Unlock()
@@ -191,7 +175,7 @@ func (h *Fetch) Exec(args []string, tc *transport.Connection) {
 
 	h.mtx.Lock()
 	if h.jobs[c.Args[0]].hadOrderIssue {
-		panic(c.Args[1] + " had order issue")
+		panic(c.Args[1] + " had order issues, please check!")
 	}
 	delete(h.jobs, c.Args[0])
 	h.mtx.Unlock()
