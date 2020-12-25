@@ -7,22 +7,24 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 )
 
 type Connection struct {
-	key         string
-	inbox       *MessageBox
-	outbox      *MessageBox
-	conn        net.Conn
-	running     bool
-	msgListener MessageListener
-	writeMutex  *sync.Cond
+	key              string
+	inbox            *MessageBox
+	outbox           *MessageBox
+	conn             net.Conn
+	running          bool
+	msgListener      MessageListener
+	writeMutex       *sync.Cond
+	largePacketCount int
 }
 
 func newConnection(con net.Conn, key string, ml MessageListener) *Connection {
 	c := &Connection{}
-	c.inbox = newMessageBox()
-	c.outbox = newMessageBox()
+	c.inbox = newMessageBox(1000)
+	c.outbox = newMessageBox(10)
 	c.running = true
 	c.conn = con
 	c.key = key
@@ -122,7 +124,12 @@ func (c *Connection) write() {
 				fmt.Print("waiting for confirmation...")
 				c.writeMutex.Wait()
 				fmt.Println("confirmed!")
+				c.largePacketCount++
 				c.writeMutex.L.Unlock()
+				if c.largePacketCount > 10 {
+					log.Info("Sleeping before continue")
+					time.Sleep(time.Second)
+				}
 			} else {
 				writePacket(packet, c.conn)
 			}
