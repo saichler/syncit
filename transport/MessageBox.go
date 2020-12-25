@@ -2,6 +2,7 @@ package transport
 
 import (
 	"sync"
+	"time"
 )
 
 type MessageBox struct {
@@ -19,12 +20,11 @@ func newMessageBox(maxSize int) *MessageBox {
 }
 
 func (msgBox *MessageBox) push(packet []byte) {
+	for len(msgBox.queue) >= msgBox.maxSize {
+		time.Sleep(time.Second / 2)
+	}
 	msgBox.mtx.L.Lock()
 	defer msgBox.mtx.L.Unlock()
-	for len(msgBox.queue) >= msgBox.maxSize {
-		msgBox.mtx.Broadcast()
-		msgBox.mtx.Wait()
-	}
 	msgBox.queue = append(msgBox.queue, packet)
 	msgBox.mtx.Broadcast()
 }
@@ -38,7 +38,6 @@ func (msgBox *MessageBox) pop() []byte {
 		if len(msgBox.queue) > 0 {
 			data := msgBox.queue[0]
 			msgBox.queue = msgBox.queue[1:]
-			msgBox.mtx.Broadcast()
 			msgBox.mtx.L.Unlock()
 			return data
 		}
