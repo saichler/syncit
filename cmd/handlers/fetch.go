@@ -34,10 +34,6 @@ func (h *Fetch) HandleCommand(c *model.Command, tc *transport.Connection) {
 		if err != nil {
 			log.Error(err)
 		}
-		err := transport.Send(c, tc)
-		if err != nil {
-			log.Error("err:", err)
-		}
 		if file != nil {
 			file.Close()
 		}
@@ -69,6 +65,7 @@ func (h *Fetch) HandleCommand(c *model.Command, tc *transport.Connection) {
 			data := make([]byte, left)
 			file.Read(data)
 			c.Response = data
+			transport.Send(c, tc)
 		}
 	} else {
 		data, err := ioutil.ReadFile(c.Args[0])
@@ -77,6 +74,7 @@ func (h *Fetch) HandleCommand(c *model.Command, tc *transport.Connection) {
 		} else {
 			c.Response = data
 		}
+		transport.Send(c, tc)
 	}
 }
 
@@ -122,7 +120,7 @@ func (h *Fetch) HandleResponse(command *model.Command, tc *transport.Connection)
 		} else {
 			if command.ResponseId%10 == 0 {
 				pr := float64(command.ResponseId) / float64(command.ResponseCount) * 100
-				fmt.Print(".", int(pr),"%")
+				fmt.Print(".", int(pr), "%")
 			} else {
 				fmt.Print(".")
 			}
