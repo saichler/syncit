@@ -10,13 +10,13 @@ import (
 )
 
 type Connection struct {
-	key              string
-	inbox            *MessageBox
-	outbox           *MessageBox
-	conn             net.Conn
-	running          bool
-	msgListener      MessageListener
-	writeMutex       *sync.Cond
+	key         string
+	inbox       *MessageBox
+	outbox      *MessageBox
+	conn        net.Conn
+	running     bool
+	msgListener MessageListener
+	writeMutex  *sync.Cond
 }
 
 func newConnection(con net.Conn, key string, ml MessageListener) *Connection {
@@ -97,7 +97,7 @@ func (c *Connection) read() {
 				c.writeMutex.Broadcast()
 				c.writeMutex.L.Unlock()
 				continue
-			} else if len(packet) >= LARGE_PACKET {
+			} else {
 				c.writeMutex.L.Lock()
 				writePacket([]byte("WC"), c.conn)
 				c.writeMutex.L.Unlock()
@@ -116,16 +116,12 @@ func (c *Connection) write() {
 		packet := c.outbox.pop()
 		if packet != nil {
 			log.Info("Sending ", len(packet))
-			if len(packet) >= LARGE_PACKET {
-				c.writeMutex.L.Lock()
-				writePacket(packet, c.conn)
-				fmt.Print("waiting for confirmation...")
-				c.writeMutex.Wait()
-				fmt.Println("confirmed!")
-				c.writeMutex.L.Unlock()
-			} else {
-				writePacket(packet, c.conn)
-			}
+			c.writeMutex.L.Lock()
+			writePacket(packet, c.conn)
+			fmt.Print("waiting for confirmation...")
+			c.writeMutex.Wait()
+			fmt.Println("confirmed!")
+			c.writeMutex.L.Unlock()
 		} else {
 			break
 		}
