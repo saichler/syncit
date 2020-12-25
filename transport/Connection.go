@@ -97,7 +97,7 @@ func (c *Connection) read() {
 				c.writeMutex.Broadcast()
 				c.writeMutex.L.Unlock()
 				continue
-			} else {
+			} else if len(packet) >= LARGE_PACKET {
 				c.writeMutex.L.Lock()
 				writePacket([]byte("WC"), c.conn)
 				c.writeMutex.L.Unlock()
@@ -115,12 +115,11 @@ func (c *Connection) write() {
 	for c.running {
 		packet := c.outbox.pop()
 		if packet != nil {
-			log.Info("Sending ", len(packet))
 			c.writeMutex.L.Lock()
 			writePacket(packet, c.conn)
-			fmt.Print("waiting for confirmation...")
-			c.writeMutex.Wait()
-			fmt.Println("confirmed!")
+			if len(packet) >= LARGE_PACKET {
+				c.writeMutex.Wait()
+			}
 			c.writeMutex.L.Unlock()
 		} else {
 			break
