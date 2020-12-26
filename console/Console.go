@@ -9,9 +9,10 @@ import (
 	"github.com/saichler/syncit/transport"
 	log "github.com/saichler/utils/golang"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
-	"sync"
+	"syscall"
 )
 
 type Console struct {
@@ -51,8 +52,7 @@ func main() {
 			fmt.Println("Processing command:", arg)
 			con.processCommand(arg)
 		}
-		cond := sync.NewCond(&sync.Mutex{})
-		cond.Wait()
+		waitForSignals()
 		return
 	}
 
@@ -65,6 +65,13 @@ func main() {
 		con.processCommand(cmd)
 	}
 	fmt.Println("Goodbye!")
+}
+
+func waitForSignals() {
+	osSignal := make(chan os.Signal, 1)
+	signal.Notify(osSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT,syscall.SIGTSTP)
+	waitForSingle := <-osSignal
+	fmt.Println("Received: ", waitForSingle.String(), ", shutting down.")
 }
 
 func getCommandAndArgs(str string) (string, []string) {
