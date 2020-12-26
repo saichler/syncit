@@ -193,7 +193,7 @@ func (h *Fetch) Exec(args []string, tc *transport.Connection) {
 
 	h.mtx.Lock()
 	if h.jobs[c.Args[0]].hadOrderIssue {
-		panic(c.Args[1] + " had order issues, please check!")
+		//panic(c.Args[1] + " had order issues, please check!")
 	}
 	delete(h.jobs, c.Args[0])
 	h.mtx.Unlock()
