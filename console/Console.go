@@ -44,7 +44,8 @@ func main() {
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "service" {
-		con.startService()
+		go con.startService()
+		waitForSignals()
 		return
 	} else if len(os.Args) > 1 {
 		args := os.Args[1:]
@@ -69,7 +70,7 @@ func main() {
 
 func waitForSignals() {
 	osSignal := make(chan os.Signal, 1)
-	signal.Notify(osSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT,syscall.SIGTSTP)
+	signal.Notify(osSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGTSTP)
 	waitForSingle := <-osSignal
 	fmt.Println("Received: ", waitForSingle.String(), ", shutting down.")
 }
