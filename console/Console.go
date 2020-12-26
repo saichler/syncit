@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Console struct {
@@ -50,6 +51,8 @@ func main() {
 			fmt.Println("Processing command:", arg)
 			con.processCommand(arg)
 		}
+		cond := sync.NewCond(&sync.Mutex{})
+		cond.Wait()
 		return
 	}
 
