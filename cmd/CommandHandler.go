@@ -26,6 +26,10 @@ func initHandlers() bool {
 }
 
 func (ch *CommandHandler) Execute(command string, args []string, tc *transport.Connection) {
+	if tc == nil {
+		log.Error("No connection available")
+		return
+	}
 	h, ok := cmdHandlers[command]
 	if ok {
 		h.Exec(args, tc)

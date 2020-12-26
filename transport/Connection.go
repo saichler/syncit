@@ -17,14 +17,16 @@ type Connection struct {
 	running     bool
 	msgListener MessageListener
 	writeMutex  *sync.Cond
+	name        string
 }
 
 func newConnection(con net.Conn, key string, ml MessageListener) *Connection {
 	c := &Connection{}
-	c.inbox = newMessageBox(1000)
-	c.outbox = newMessageBox(20)
-	c.running = true
 	c.conn = con
+	c.name = con.RemoteAddr().String()
+	c.inbox = newMessageBox("Inbox "+c.name, 1000)
+	c.outbox = newMessageBox("Outbox "+c.name, 20)
+	c.running = true
 	c.key = key
 	c.msgListener = ml
 	c.writeMutex = sync.NewCond(&sync.Mutex{})
@@ -74,7 +76,7 @@ func Connect(host, key, secret string, port int, ml MessageListener) (*Connectio
 	inData, err := readPacket(conn)
 
 	if string(inData) != "OK" {
-		return nil, errors.New("Failed to connect")
+		return nil, errors.New("Failed to connect, incorrect Key/Secret")
 	}
 
 	service := newConnection(conn, key, ml)
@@ -104,13 +106,25 @@ func (c *Connection) read() {
 					c.writeMutex.L.Unlock()
 				*/
 			}
-			c.inbox.push(packet)
+			if c.running {
+				c.inbox.push(packet)
+			}
 		} else {
-			log.Error("packet is nil")
 			break
 		}
 	}
-	log.Info("Connection Read for ", c.conn.RemoteAddr(), " ended.")
+	log.Info("Connection Read for ", c.name, " ended.")
+	c.Shutdown()
+}
+
+func (c *Connection) Shutdown() {
+	c.running = false
+	if c.conn != nil {
+		c.conn.Close()
+	}
+	c.inbox.Shutdown()
+	c.outbox.Shutdown()
+	c.writeMutex.Broadcast()
 }
 
 func (c *Connection) write() {
@@ -118,7 +132,9 @@ func (c *Connection) write() {
 		packet := c.outbox.pop()
 		if packet != nil {
 			c.writeMutex.L.Lock()
-			writePacket(packet, c.conn)
+			if c.running {
+				writePacket(packet, c.conn)
+			}
 			if len(packet) >= LARGE_PACKET {
 				//c.writeMutex.Wait()
 			}
@@ -127,15 +143,18 @@ func (c *Connection) write() {
 			break
 		}
 	}
-	log.Info("Connection Write for ", c.conn.RemoteAddr(), " ended.")
+	log.Info("Connection Write for ", c.name, " ended.")
+	c.Shutdown()
 }
 
 func (c *Connection) Send(data []byte) error {
-	encData, err := encode(data, c.key)
-	if err != nil {
-		return err
+	if c.running {
+		encData, err := encode(data, c.key)
+		if err != nil {
+			return err
+		}
+		c.outbox.push([]byte(encData))
 	}
-	c.outbox.push([]byte(encData))
 	return nil
 }
 
@@ -151,13 +170,16 @@ func (c *Connection) process() {
 			c.handleMessage(data)
 		}
 	}
-	log.Info("Proxy Connection Packet Ended")
+	log.Info("Message Processing for ", c.name, " Ended")
+	c.Shutdown()
 }
 
 func (c *Connection) handleMessage(msg []byte) {
-	if c.msgListener != nil {
-		go c.msgListener.HandleMessage(msg, c)
-	} else {
-		fmt.Println(string(msg))
+	if c.running {
+		if c.msgListener != nil {
+			go c.msgListener.HandleMessage(msg, c)
+		} else {
+			fmt.Println(string(msg))
+		}
 	}
 }

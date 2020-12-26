@@ -54,9 +54,12 @@ func (l *Listener) Listen() error {
 	}
 	l.running = true
 	for l.running {
+		log.Info("Waiting...")
 		conn, e := l.socket.Accept()
+		log.Info("Accepted...")
 		if e != nil {
-			return e
+			log.Error(e)
+			continue
 		}
 		l.addService(conn)
 	}

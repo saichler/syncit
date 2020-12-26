@@ -44,6 +44,13 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "service" {
 		con.startService()
 		return
+	} else if len(os.Args) > 1 {
+		args := os.Args[1:]
+		for _, arg := range args {
+			fmt.Println("Processing command:", arg)
+			con.processCommand(arg)
+		}
+		return
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -68,7 +75,7 @@ func getCommandAndArgs(str string) (string, []string) {
 	qo := false
 	buff := bytes.Buffer{}
 	for _, c := range str {
-		if c == '"' {
+		if c == '"' || c == '\'' {
 			qo = !qo
 		} else if c == ' ' && !qo {
 			args = append(args, buff.String())
