@@ -24,3 +24,9 @@ message Command {
    int32 responseId      = 5;
    int32 responseCount   = 6;
 }
+
+message UserPass {
+   string username = 1;
+   string password = 2;
+   string token    = 3;
+}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/saichler/security"
 	"github.com/saichler/syncit/cmd"
+	"github.com/saichler/syncit/model"
 	"github.com/saichler/syncit/transport"
 	log "github.com/saichler/utils/golang"
 	"os"
@@ -21,27 +22,13 @@ type Console struct {
 	tc            *transport.Connection
 }
 
-const (
-	FILENAME = "./console.io"
-	MYK      = "/my/k"
-	MYS      = "/my/s"
-	MYP      = "/my/p"
-)
-
 var prompt = "Sync-it->"
 var running = true
 
 func main() {
 	con := &Console{}
 	con.commandHanler = &cmd.CommandHandler{}
-
-	_, err := os.Stat(FILENAME)
-	if err != nil {
-		st := security.InitSecureStore(FILENAME)
-		st.Put(MYK, security.GenerateAES256Key())
-		st.Put(MYS, "sync-it")
-		st.Put(MYP, "45454")
-	}
+	model.InitSt()
 
 	if len(os.Args) > 1 && os.Args[1] == "service" {
 		go con.startService()
@@ -113,31 +100,32 @@ func (con *Console) processCommand(input string) {
 	}
 
 	if command == "gk" {
-		st := security.InitSecureStore(FILENAME)
-		k, _ := st.Get(MYK)
+		st := security.InitSecureStore(model.IO_FILENAME)
+		k, _ := st.Get(model.MYK)
 		log.Info("MYK=", k)
 		return
 	} else if command == "sk" {
-		st := security.InitSecureStore(FILENAME)
-		st.Put(MYK, security.GenerateAES256Key())
+		st := security.InitSecureStore(model.IO_FILENAME)
+		st.Put(model.MYK, security.GenerateAES256Key())
 		return
 	} else if command == "gs" {
-		st := security.InitSecureStore(FILENAME)
-		s, _ := st.Get(MYS)
+		st := security.InitSecureStore(model.IO_FILENAME)
+		s, _ := st.Get(model.MYS)
 		log.Info("MYS=", s)
 		return
 	} else if command == "ss" {
-		st := security.InitSecureStore(FILENAME)
-		st.Put(MYS, args[0])
+		st := security.InitSecureStore(model.IO_FILENAME)
+		st.Put(model.MYS, args[0])
+		model.Secret = args[0]
 		return
 	} else if command == "gp" {
-		st := security.InitSecureStore(FILENAME)
-		p, _ := st.Get(MYP)
+		st := security.InitSecureStore(model.IO_FILENAME)
+		p, _ := st.Get(model.MYP)
 		log.Info("MYP=", p)
 		return
 	} else if command == "sp" {
-		st := security.InitSecureStore(FILENAME)
-		st.Put(MYP, args[0])
+		st := security.InitSecureStore(model.IO_FILENAME)
+		st.Put(model.MYP, args[0])
 		return
 	}
 	if command == "service" {
@@ -150,7 +138,7 @@ func (con *Console) processCommand(input string) {
 }
 
 func (con *Console) connect(args []string) {
-	st := security.InitSecureStore(FILENAME)
+	st := security.InitSecureStore(model.IO_FILENAME)
 	if args == nil || len(args) == 0 {
 		log.Error("To connect you need the following args <host> <port> <key> <secret>")
 		return
@@ -196,11 +184,11 @@ func (con *Console) connect(args []string) {
 }
 
 func (con *Console) startService() {
-	st := security.InitSecureStore(FILENAME)
-	p, _ := st.Get(MYP)
+	st := security.InitSecureStore(model.IO_FILENAME)
+	p, _ := st.Get(model.MYP)
 	port, _ := strconv.Atoi(p)
-	key, _ := st.Get(MYK)
-	secret, _ := st.Get(MYS)
+	key, _ := st.Get(model.MYK)
+	secret, _ := st.Get(model.MYS)
 
 	con.service = transport.NewListener(port, secret, key, con.commandHanler)
 	err := con.service.Listen()
