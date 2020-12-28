@@ -7,6 +7,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/saichler/syncit/dashboard"
 	"github.com/saichler/syncit/dashboard/handlers"
+	"github.com/saichler/syncit/files"
 	"github.com/saichler/syncit/model"
 	"io/ioutil"
 	"net/http"
@@ -58,6 +59,10 @@ func TestDashboard(t *testing.T) {
 
 	h2 := handlers.NewLs()
 
+	filename := "/home/saichler/syncit"
+	file := &model.File{}
+	file.NameA = filename
+	payload, _ = model.PbMarshaler.MarshalToString(file)
 	request, e = createRequest("POST", "https://127.0.0.1:10101"+h2.Endpoint(), []byte(payload), userpass.Token)
 	if e != nil {
 		fmt.Println(e)
@@ -65,12 +70,15 @@ func TestDashboard(t *testing.T) {
 		return
 	}
 	resp, e = hc.Do(request)
-	if e!=nil {
+	if e != nil {
 		fmt.Println(e)
 		t.Fail()
 		return
 	}
-	fmt.Println(resp)
+	jsn, _ = ioutil.ReadAll(resp.Body)
+	jsonStr = string(jsn)
+	jsonpb.UnmarshalString(jsonStr, file)
+	files.Print(file, 2, false, true)
 }
 
 func createRequest(rest, url string, body []byte, token string) (*http.Request, error) {

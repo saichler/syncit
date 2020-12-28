@@ -1,6 +1,10 @@
 package handlers
 
 import (
+	"fmt"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/saichler/syncit/files"
+	"github.com/saichler/syncit/model"
 	"net/http"
 )
 
@@ -21,7 +25,17 @@ func (h *Ls) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(200)
-	w.Write([]byte("Hello!"))
+
+	file := &model.File{}
+	err:=jsonpb.Unmarshal(r.Body, file)
+	if err!=nil {
+		fmt.Println(err)
+	}
+	file = files.Scan(file.NameA)
+
+	resp, _ := model.PbMarshaler.MarshalToString(file)
+
+	w.Write([]byte(resp))
 }
 
 func (h *Ls) Method() string {
