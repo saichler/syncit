@@ -22,7 +22,6 @@ func TestDashboard(t *testing.T) {
 	d := dashboard.NewDashboard(10101)
 	go d.Start()
 	time.Sleep(time.Second)
-	hc := &http.Client{}
 
 	userpass := &model.UserPass{}
 	userpass.Username = "hello"
@@ -36,49 +35,39 @@ func TestDashboard(t *testing.T) {
 	}
 
 	h := &handlers.Login{}
+	resp, e := execute(h, payload, "", "", t)
+	if e != nil {
+		return
+	}
 
-	request, e := createRequest("POST", "https://127.0.0.1:10101"+h.Endpoint(), []byte(payload), "")
-	if e != nil {
-		t.Fail()
-		fmt.Println(e)
-		return
-	}
-	resp, e := hc.Do(request)
-	if e != nil {
-		t.Fail()
-		fmt.Println(e)
-		return
-	}
-	jsn, _ := ioutil.ReadAll(resp.Body)
-	jsonStr := string(jsn)
-	jsonpb.UnmarshalString(jsonStr, userpass)
+	jsonpb.UnmarshalString(resp, userpass)
+
 	if userpass.Token == "" {
+		fmt.Println("token is blank")
 		t.Fail()
 		return
 	}
-
-	h2 := handlers.NewLs()
 
 	filename := "/home/saichler/syncit"
 	file := &model.File{}
 	file.NameA = filename
 	payload, _ = model.PbMarshaler.MarshalToString(file)
-	request, e = createRequest("POST", "https://127.0.0.1:10101"+h2.Endpoint(), []byte(payload), userpass.Token)
+
+	h2 := handlers.NewLs()
+	resp, e = execute(h2, payload, userpass.Token, "", t)
 	if e != nil {
-		fmt.Println(e)
-		t.Fail()
 		return
 	}
-	resp, e = hc.Do(request)
-	if e != nil {
-		fmt.Println(e)
-		t.Fail()
-		return
-	}
-	jsn, _ = ioutil.ReadAll(resp.Body)
-	jsonStr = string(jsn)
-	jsonpb.UnmarshalString(jsonStr, file)
+	jsonpb.UnmarshalString(resp, file)
 	files.Print(file, 2, false, true)
+
+	fmt.Println("Get with parameters:")
+
+	resp, e = execute(h2, "", userpass.Token, "file=/home/saichler/syncit;dept=4;incFile=true;incLessBlock=true", t)
+
+	fmt.Println(resp)
+
+	//time.Sleep(time.Second * 60)
 }
 
 func createRequest(rest, url string, body []byte, token string) (*http.Request, error) {
@@ -91,4 +80,27 @@ func createRequest(rest, url string, body []byte, token string) (*http.Request, 
 	request.Header.Add("content-type", "application/json")
 	request.Header.Add("Accept", "application/json, text/plain, */*")
 	return request, nil
+}
+
+func execute(h handlers.RestHandler, payload, token, arg string, t *testing.T) (string, error) {
+	hc := &http.Client{}
+	url := "https://127.0.0.1:10101" + h.Endpoint()
+	if arg != "" {
+		url += "?" + arg
+	}
+	request, e := createRequest(h.Method(), url, []byte(payload), token)
+	if e != nil {
+		t.Fail()
+		fmt.Println(e)
+		return "", e
+	}
+	resp, e := hc.Do(request)
+	if e != nil {
+		t.Fail()
+		fmt.Println(e)
+		return "", e
+	}
+	jsn, _ := ioutil.ReadAll(resp.Body)
+	jsonStr := string(jsn)
+	return jsonStr, nil
 }

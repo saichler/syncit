@@ -86,11 +86,13 @@ func seek(parent *model.File, filename string) {
 	parent.Files = append(parent.Files, fe)
 }
 
-func Print(fe *model.File, dept int, incFile, incLessThanBlock bool) {
-	print(fe, 0, dept, incFile, incLessThanBlock)
+func Print(fe *model.File, dept int, incFile, incLessThanBlock bool) *bytes.Buffer {
+	buff := &bytes.Buffer{}
+	print(fe, 0, dept, incFile, incLessThanBlock, buff)
+	return buff
 }
 
-func print(fe *model.File, lvl, dept int, incFiles, incLessThanBlock bool) {
+func print(fe *model.File, lvl, dept int, incFiles, incLessThanBlock bool, resp *bytes.Buffer) {
 	if lvl > dept {
 		return
 	}
@@ -106,10 +108,12 @@ func print(fe *model.File, lvl, dept int, incFiles, incLessThanBlock bool) {
 	buff.WriteString(" ")
 	buff.WriteString(sizeStr)
 	fmt.Println(buff.String())
+	resp.Write(buff.Bytes())
+	resp.WriteString("\n")
 	if fe.Files != nil {
 		for _, child := range fe.Files {
 			lvl++
-			print(child, lvl, dept, incFiles, incLessThanBlock)
+			print(child, lvl, dept, incFiles, incLessThanBlock, resp)
 			lvl--
 		}
 	}
