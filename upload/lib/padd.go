@@ -5,6 +5,10 @@ import (
 	"errors"
 )
 
+//1.My objective was to keep the cyclomatic complexity low, we can discuss why this is important.
+//2.Probably forgot some negative testing so code coverage will not be perfect, hope you have static analysis in place
+//3.Coding standards are per GoLang
+
 func Padd(str string, size int) (string, error) {
 	//check for 0, return same string
 	if size == 0 {
